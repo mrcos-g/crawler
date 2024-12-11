@@ -48,8 +48,28 @@ export const urlsFromHTML = (htmlBody: string, url: string) => {
   return urls;
 };
 
-export const crawlPage = async (currentURL: string) => {
+export const crawlPage = async (
+  baseURL: string,
+  currentURL: string,
+  pages: Map<string, number>,
+): Promise<Map<string, number>> => {
+  const baseURLObj = new URL(baseURL);
+  const currentURLObj = new URL(currentURL);
+
+  if (baseURLObj.host !== currentURLObj.hostname) {
+    return pages;
+  }
+
+  const normalizeCurrentURL = normalizeURL(currentURL);
+  if ((pages.get(normalizeCurrentURL) ?? 0) > 0) {
+    pages.set(normalizeCurrentURL, pages.get(normalizeCurrentURL)! + 1);
+    return pages;
+  }
+
+  pages.set(normalizeCurrentURL, 1);
+
   console.log(`currently crawling: ${currentURL}`);
+
   try {
     const response = await fetch(currentURL);
 
@@ -57,7 +77,7 @@ export const crawlPage = async (currentURL: string) => {
       console.log(
         `Error in fetch with code: ${response.status} on page ${currentURL}`,
       );
-      return;
+      return pages;
     }
 
     const contentType = response.headers.get("content-type");
@@ -66,9 +86,16 @@ export const crawlPage = async (currentURL: string) => {
       console.log(
         `Returned a non html response, content type: ${contentType}, on page: ${currentURL}`,
       );
+      return pages;
     }
 
-    console.log(await response.text());
+    const html = await response.text();
+
+    const succeedingURLs = urlsFromHTML(html, baseURL);
+
+    for (const url of succeedingURLs) {
+      pages = await crawlPage(baseURL, url, pages);
+    }
   } catch (error: unknown) {
     if (error instanceof Error) {
       console.log(`Fetch error: ${error.message}, on page: ${currentURL}`);
@@ -76,4 +103,6 @@ export const crawlPage = async (currentURL: string) => {
       console.log(`Unknow error`);
     }
   }
+
+  return pages;
 };
