@@ -14,5 +14,9 @@ if (import.meta.main) {
 
   const baseUrl = Deno.args[0];
   console.log(`crawl started at ${baseUrl}`);
-  crawlPage(baseUrl);
+  const pages = await crawlPage(baseUrl, baseUrl, new Map());
+
+  for (const page of pages.entries()) {
+    console.log({ page });
+  }
 }
